@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.log
+.env
+*.DS_Store
+db/emobank/
+logs/
+output/
+.idea/
+*.sqlite3
