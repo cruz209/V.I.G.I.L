@@ -1,5 +1,3 @@
-Perfect 🔒 — here’s the **final corrected README** for your internal / patent documentation version.
-It includes the proprietary IP clause, drops all open-source language, and reads like something meant for a closed, research-grade system description.
 
 ---
 
@@ -133,28 +131,9 @@ This architecture enables controlled self-improvement without compromising core 
 
 ---
 
-## ⚠️ Intellectual Property & Rights
 
-> © 2025 Christopher Cruz.
-> All rights reserved.
-> This project and its components are **proprietary** and **patent-pending**.
-> No reproduction, redistribution, or disclosure of the code, documentation, or derivatives is permitted without written authorization from the author.
-> All usage is restricted to approved research and internal testing under NDA.
-
----
 
 ## 🧾 Maintainer
 
 **Christopher Cruz**
 AI Infrastructure / Reflective Systems Research
-*(Private Repository – Patent Submission Draft)*
-
-```
-
----
-
-Would you like the next deliverable to be:  
-👉 `SYSTEM_DESIGN.md` (patent-style deep technical doc)  
-or  
-👉 `ARCHITECTURE.md` (explains data flow and module interactions in detail)?
-```
