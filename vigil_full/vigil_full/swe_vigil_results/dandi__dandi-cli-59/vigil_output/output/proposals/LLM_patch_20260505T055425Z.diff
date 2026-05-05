@@ -1,0 +1,105 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,96 @@
++"""Agent runtime helpers.
++
++This module includes lightweight observability around submit operations so that
++transient submit failures are visible and retried once before surfacing a
++structured error to callers.
++"""
++
++import json
++import logging
++import random
++import time
++from dataclasses import asdict, dataclass
++from typing import Any, Callable, Dict, Optional, TypeVar
++
++
++LOGGER = logging.getLogger(__name__)
++_T = TypeVar("_T")
++
++
++@dataclass
++class AgentErrorEvent:
++    """Structured error payload for agent failure paths."""
++
++    cause: str
++    operation: str
++    attempt: int
++    error_type: str
++    error: str
++
++
++def _log_agent_error(
++    *,
++    cause: str,
++    operation: str,
++    attempt: int,
++    exc: BaseException,
++    extra: Optional[Dict[str, Any]] = None,
++) -> AgentErrorEvent:
++    """Emit a structured error log with a stable cause code."""
++
++    event = AgentErrorEvent(
++        cause=cause,
++        operation=operation,
++        attempt=attempt,
++        error_type=type(exc).__name__,
++        error=str(exc),
++    )
++    payload: Dict[str, Any] = asdict(event)
++    if extra:
++        payload["extra"] = extra
++    LOGGER.error("agent_error %s", json.dumps(payload, sort_keys=True), exc_info=exc)
++    return event
++
++
++def submit_with_observability(
++    submit_fn: Callable[..., _T],
++    *args: Any,
++    operation: str = "agent.submit",
++    retries: int = 1,
++    jitter_seconds: float = 0.25,
++    **kwargs: Any,
++) -> _T:
++    """Call an agent submit function with one jittered retry and structured logs.
++
++    The recent RBT diagnosis identified ``agent.submit:fail`` as the top thorn.
++    This wrapper keeps successful submit behavior unchanged while adding:
++
++    * a stable ``agent.submit:fail`` cause code for failing paths;
++    * one retry for transient failures;
++    * jitter to avoid synchronized retry bursts.
++    """
++
++    max_attempts = retries + 1
++    last_exc: Optional[BaseException] = None
++    for attempt in range(1, max_attempts + 1):
++        try:
++            result = submit_fn(*args, **kwargs)
++            LOGGER.info(
++                "agent_submit_success operation=%s attempt=%s",
++                operation,
++                attempt,
++            )
++            return result
++        except Exception as exc:  # noqa: BLE001 - submit boundaries must log all failures.
++            last_exc = exc
++            _log_agent_error(
++                cause="agent.submit:fail",
++                operation=operation,
++                attempt=attempt,
++                exc=exc,
++                extra={"will_retry": attempt < max_attempts},
++            )
++            if attempt < max_attempts:
++                time.sleep(random.uniform(0.0, jitter_seconds))
++
++    assert last_exc is not None
++    raise RuntimeError(
++        f"{operation} failed after {max_attempts} attempt(s); "
++        "see structured logs with cause=agent.submit:fail"
++    ) from last_exc
++

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vigil-swe-eval"
+version = "0.1.0"
+description = "VIGIL real-world evaluation harness: SWE-bench integration, ablation suite, and baseline comparisons"
+authors = [{name = "Christopher Cruz"}]
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["llm", "agents", "evaluation", "swe-bench", "vigil", "reflective-runtime"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "openai>=1.30.0",
+    "datasets>=2.18.0",
+    "requests>=2.31.0",
+    "rich>=13.7.0",
+    "pydantic>=2.6.0",
+    "python-dateutil>=2.9.0",
+    "gitpython>=3.1.40",
+    "sweagent>=0.6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+vigil-swe = "vigil_swe_eval.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vigil_swe_eval*"]

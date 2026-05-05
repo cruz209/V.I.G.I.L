@@ -1,0 +1,64 @@
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,68 @@
++import json
++import logging
++import random
++import time
++
++LOGGER = logging.getLogger(__name__)
++
++
++def _log_structured_error(cause_code, exc, **context):
++    """Emit machine-readable error details for thorn analysis.
++
++    The recent RBT diagnosis identified ``agent.submit:fail`` as the top
++    failure path. Keeping the log payload stable makes later log processing
++    able to group failures by cause without parsing free-form exception text.
++    """
++    payload = {
++        "event": "agent.error",
++        "cause": cause_code,
++        "error_type": type(exc).__name__,
++        "error": str(exc),
++    }
++    if context:
++        payload["context"] = context
++    LOGGER.error(json.dumps(payload, sort_keys=True))
++
++
++def submit_with_observability(submit_func, *args, **kwargs):
++    """Call an agent submit function with one jittered retry and structured logs.
++
++    This preserves successful submit behavior while hardening the observed
++    ``agent.submit:fail`` thorn. The wrapped callable is retried once because
++    submit failures are often transient, and both failed attempts are logged
++    with a stable cause code for future diagnosis.
++    """
++    max_attempts = 2
++    for attempt in range(1, max_attempts + 1):
++        try:
++            result = submit_func(*args, **kwargs)
++            if attempt > 1:
++                LOGGER.info(
++                    json.dumps(
++                        {
++                            "event": "agent.submit.retry_success",
++                            "cause": "agent.submit:ok_after_retry",
++                            "attempt": attempt,
++                        },
++                        sort_keys=True,
++                    )
++                )
++            return result
++        except Exception as exc:
++            _log_structured_error(
++                "agent.submit:fail",
++                exc,
++                attempt=attempt,
++                max_attempts=max_attempts,
++            )
++            if attempt >= max_attempts:
++                raise
++            time.sleep(random.uniform(0.05, 0.25))
++

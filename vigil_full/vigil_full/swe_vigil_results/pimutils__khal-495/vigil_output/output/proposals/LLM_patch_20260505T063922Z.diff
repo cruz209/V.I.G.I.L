@@ -1,0 +1,68 @@
+diff --git a/agent.py b/agent.py
+index 3f2c1a0..8d7b1e4 100644
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,60 @@
++import json
++import logging
++import random
++import time
++
++LOGGER = logging.getLogger(__name__)
++
++
++def _structured_log(level, event, **fields):
++    """Emit machine-readable logs for agent reliability diagnostics."""
++    record = {"event": event, **fields}
++    LOGGER.log(level, json.dumps(record, sort_keys=True, default=str))
++
++
++def _retry_once_with_jitter(operation, *, cause_code, **context):
++    """Run an operation, retrying once with jitter while preserving structured failure context."""
++    try:
++        return operation()
++    except Exception as exc:
++        _structured_log(
++            logging.WARNING,
++            "agent.operation.retry",
++            cause_code=cause_code,
++            error_type=type(exc).__name__,
++            error=str(exc),
++            attempt=1,
++            **context,
++        )
++        time.sleep(random.uniform(0.05, 0.25))
++        try:
++            return operation()
++        except Exception as retry_exc:
++            _structured_log(
++                logging.ERROR,
++                "agent.operation.failed",
++                cause_code=cause_code,
++                error_type=type(retry_exc).__name__,
++                error=str(retry_exc),
++                attempt=2,
++                **context,
++            )
++            raise
++
++
++def submit_with_observability(submit_callable, *args, **kwargs):
++    """Submit through a callable with structured telemetry and a single jittered retry.
++
++    Use this wrapper for agent.submit paths so submit failures are surfaced with
++    a stable cause code and retried once before failing outward.
++    """
++    _structured_log(
++        logging.INFO,
++        "agent.submit.start",
++        cause_code="agent.submit",
++    )
++
++    def _operation():
++        return submit_callable(*args, **kwargs)
++
++    result = _retry_once_with_jitter(_operation, cause_code="agent.submit")
++    _structured_log(logging.INFO, "agent.submit.ok", cause_code="agent.submit")
++    return result
++

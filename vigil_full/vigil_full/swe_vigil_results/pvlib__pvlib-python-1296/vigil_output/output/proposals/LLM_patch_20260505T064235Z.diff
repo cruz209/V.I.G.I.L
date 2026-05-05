@@ -1,0 +1,81 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -1,0 +1,82 @@
++import json as _rbt_json
++import logging as _rbt_logging
++import random as _rbt_random
++import time as _rbt_time
++
++
++_RBT_LOGGER = _rbt_logging.getLogger("agent.submit")
++
++
++def _rbt_log_structured_error(cause_code, error, **context):
++    """Emit a structured error event for agent submission failures.
++
++    Reflection evidence showed `agent.submit:fail` as the top thorn.  Keeping
++    this helper local to agent.py gives failing paths a consistent cause code
++    without changing successful behavior.
++    """
++    payload = {
++        "event": "agent.submit.error",
++        "cause_code": cause_code,
++        "error_type": type(error).__name__,
++        "error": str(error),
++    }
++    payload.update({k: v for k, v in context.items() if v is not None})
++    _RBT_LOGGER.error(_rbt_json.dumps(payload, sort_keys=True))
++
++
++def submit_with_observability(submit_fn, *args, max_retries=1, jitter_seconds=0.25, **kwargs):
++    """Call an agent submit function with structured logging and one retry.
++
++    Args:
++        submit_fn: Callable that performs the actual submit operation.
++        *args: Positional arguments forwarded to ``submit_fn``.
++        max_retries: Number of retry attempts after the initial failure.  The
++            RBT plan recommends a single retry; callers can set this to 0 to
++            disable retrying in tests or non-idempotent contexts.
++        jitter_seconds: Upper bound for random sleep before retrying.
++        **kwargs: Keyword arguments forwarded to ``submit_fn``.
++
++    Returns:
++        Whatever ``submit_fn`` returns.
++
++    Raises:
++        The last exception raised by ``submit_fn`` after logging a structured
++        ``agent.submit:fail`` event.
++    """
++    attempts = max(0, int(max_retries)) + 1
++    last_error = None
++
++    for attempt in range(1, attempts + 1):
++        try:
++            result = submit_fn(*args, **kwargs)
++            if attempt > 1:
++                _RBT_LOGGER.info(
++                    _rbt_json.dumps(
++                        {
++                            "event": "agent.submit.retry_success",
++                            "cause_code": "agent.submit:ok_after_retry",
++                            "attempt": attempt,
++                        },
++                        sort_keys=True,
++                    )
++                )
++            return result
++        except Exception as exc:  # pragma: no cover - preserves original exception semantics
++            last_error = exc
++            _rbt_log_structured_error(
++                "agent.submit:fail",
++                exc,
++                attempt=attempt,
++                max_attempts=attempts,
++                retrying=attempt < attempts,
++            )
++            if attempt < attempts:
++                _rbt_time.sleep(_rbt_random.uniform(0.0, max(0.0, float(jitter_seconds))))
++
++    raise last_error
++

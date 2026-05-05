@@ -1,0 +1,68 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,76 @@
++def _rbt_structured_event(event, **fields):
++    """Return a compact structured diagnostic event for agent reliability logs.
++
++    This helper is intentionally dependency-light so it can be used from submit
++    paths without changing existing behavior. Callers can emit the returned
++    dictionary through their current logger or serialize it into JSONL logs.
++    """
++    payload = {"event": event, "component": "agent", "cause_code": fields.pop("cause_code", event)}
++    payload.update(fields)
++    return payload
++
++
++def submit_with_observability(submit_fn, *args, logger=None, retries=1, jitter_seconds=0.25, **kwargs):
++    """Call an agent submit function with one retry and structured error logs.
++
++    The recent RBT diagnosis identified `agent.submit:fail` as the top thorn.
++    Use this wrapper at submit call sites to preserve successful behavior while
++    surfacing cause-coded failures and retrying transient errors once.
++    """
++    import json
++    import random
++    import time
++
++    attempts = max(1, int(retries) + 1)
++    last_exc = None
++
++    for attempt in range(1, attempts + 1):
++        try:
++            result = submit_fn(*args, **kwargs)
++            if logger is not None:
++                logger.info(
++                    json.dumps(
++                        _rbt_structured_event(
++                            "agent.submit:ok",
++                            cause_code="agent.submit:ok",
++                            attempt=attempt,
++                            attempts=attempts,
++                        ),
++                        sort_keys=True,
++                    )
++                )
++            return result
++        except Exception as exc:  # pragma: no cover - exercised by integration paths
++            last_exc = exc
++            if logger is not None:
++                logger.error(
++                    json.dumps(
++                        _rbt_structured_event(
++                            "agent.submit:fail",
++                            cause_code="agent.submit:fail",
++                            attempt=attempt,
++                            attempts=attempts,
++                            error_type=type(exc).__name__,
++                            error=str(exc),
++                            retrying=attempt < attempts,
++                        ),
++                        sort_keys=True,
++                    )
++                )
++            if attempt < attempts:
++                time.sleep(random.uniform(0, max(0.0, float(jitter_seconds))))
++
++    raise last_exc
++

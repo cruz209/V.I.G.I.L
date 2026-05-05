@@ -1,0 +1,83 @@
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,70 @@
++import logging
++import random
++import time
++
++_LOGGER = logging.getLogger(__name__)
++
++
++def submit_with_observability(submit_callable, *args, **kwargs):
++    """Run an agent submit callable with structured logging and one retry.
++
++    Recent event reflection identified ``agent.submit:fail`` as the primary
++    thorn.  This helper keeps the successful submit path unchanged while making
++    failures observable and giving transient failures one jittered retry.
++
++    Parameters
++    ----------
++    submit_callable:
++        Callable that performs the actual submit operation.
++    *args, **kwargs:
++        Arguments forwarded directly to ``submit_callable``.
++
++    Returns
++    -------
++    Any
++        The value returned by ``submit_callable``.
++
++    Raises
++    ------
++    Exception
++        Re-raises the final exception after the retry is exhausted.
++    """
++    return _call_with_structured_retry(
++        submit_callable,
++        cause_code="agent.submit",
++        max_attempts=2,
++        *args,
++        **kwargs,
++    )
++
++
++def _call_with_structured_retry(callable_, cause_code, max_attempts=2, *args, **kwargs):
++    """Call ``callable_`` and log failures with stable cause codes.
++
++    The retry budget is intentionally small: one immediate retry with jitter is
++    enough to smooth transient tool/API errors without masking persistent bugs.
++    """
++    if not callable(callable_):
++        raise TypeError("callable_ must be callable")
++    if max_attempts < 1:
++        raise ValueError("max_attempts must be at least 1")
++
++    last_error = None
++    for attempt in range(1, max_attempts + 1):
++        try:
++            result = callable_(*args, **kwargs)
++            if attempt > 1:
++                _LOGGER.info(
++                    "structured_event",
++                    extra={
++                        "cause_code": f"{cause_code}:retry_ok",
++                        "attempt": attempt,
++                    },
++                )
++            return result
++        except Exception as exc:  # pragma: no cover - preserves original error
++            last_error = exc
++            _LOGGER.warning(
++                "structured_event",
++                extra={
++                    "cause_code": f"{cause_code}:fail",
++                    "attempt": attempt,
++                    "max_attempts": max_attempts,
++                    "error_type": type(exc).__name__,
++                    "error": str(exc),
++                },
++            )
++            if attempt < max_attempts:
++                time.sleep(random.uniform(0.05, 0.25))
++    raise last_error
++

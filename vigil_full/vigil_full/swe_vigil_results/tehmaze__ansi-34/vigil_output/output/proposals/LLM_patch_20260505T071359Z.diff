@@ -1,0 +1,88 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -0,0 +1,84 @@
++"""Agent observability helpers.
++
++This module-level utility is intentionally dependency-light so submit paths can
++wrap outbound calls without changing their call signatures. It addresses recent
++agent.submit failures by emitting structured cause-coded logs and retrying once
++with jitter before surfacing the original error.
++"""
++
++import logging
++import random
++import time
++from typing import Any, Callable, Dict, Optional, TypeVar
++
++
++T = TypeVar("T")
++
++
++def _structured_agent_error(
++    *,
++    cause: str,
++    attempt: int,
++    max_attempts: int,
++    error: BaseException,
++    context: Optional[Dict[str, Any]] = None,
++) -> Dict[str, Any]:
++    """Build a stable structured error payload for agent failure paths."""
++
++    return {
++        "event": "agent.submit.error",
++        "cause": cause,
++        "attempt": attempt,
++        "max_attempts": max_attempts,
++        "error_type": type(error).__name__,
++        "error": str(error),
++        "context": context or {},
++    }
++
++
++def submit_with_observability(
++    submit_fn: Callable[..., T],
++    *args: Any,
++    cause: str = "agent.submit",
++    logger: Optional[logging.Logger] = None,
++    retry_once: bool = True,
++    jitter_seconds: float = 0.25,
++    context: Optional[Dict[str, Any]] = None,
++    **kwargs: Any,
++) -> T:
++    """Run an agent submit callable with structured logging and one retry.
++
++    Usage:
++        result = submit_with_observability(agent.submit, payload,
++                                          context={"request_id": request_id})
++
++    The helper preserves successful behavior and only intervenes on exceptions:
++    the first failure is logged with a cause code, then retried once with bounded
++    jitter. If the retry also fails, the final exception is re-raised after a
++    second structured log entry.
++    """
++
++    log = logger or logging.getLogger(__name__)
++    max_attempts = 2 if retry_once else 1
++
++    for attempt in range(1, max_attempts + 1):
++        try:
++            return submit_fn(*args, **kwargs)
++        except Exception as exc:
++            payload = _structured_agent_error(
++                cause=cause,
++                attempt=attempt,
++                max_attempts=max_attempts,
++                error=exc,
++                context=context,
++            )
++            log.warning("agent submit failed", extra={"agent_error": payload})
++
++            if attempt >= max_attempts:
++                raise
++
++            delay = random.uniform(0.0, max(0.0, jitter_seconds))
++            if delay:
++                time.sleep(delay)
++
++    raise RuntimeError("unreachable: submit_with_observability exhausted attempts")

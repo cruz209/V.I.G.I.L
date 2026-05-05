@@ -1,0 +1,14 @@
+{
+  "09ad6c035968": {
+    "cause": "shell.exec:ok",
+    "count": 55,
+    "last_ts": "2026-05-05T06:57:34Z",
+    "last_emotion": "relief"
+  },
+  "c6d543159062": {
+    "cause": "agent.submit:fail",
+    "count": 1,
+    "last_ts": "2026-05-05T06:57:35Z",
+    "last_emotion": "frustration"
+  }
+}

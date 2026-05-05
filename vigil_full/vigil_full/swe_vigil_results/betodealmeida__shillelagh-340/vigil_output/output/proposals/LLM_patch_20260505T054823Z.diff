@@ -1,0 +1,118 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -0,0 +1,99 @@
++"""Agent observability helpers.
++
++This module-level utility is intentionally dependency-free so agent submit paths
++can emit structured diagnostics without changing existing behavior. Use
++``submit_with_observability(lambda: submit(...))`` around an agent.submit call to
++surface cause-coded errors and retry a transient failure once.
++"""
++
++from __future__ import annotations
++
++import json
++import logging
++import random
++import time
++from typing import Any, Callable, TypeVar
++
++
++LOGGER = logging.getLogger(__name__)
++_T = TypeVar("_T")
++
++
++def log_agent_event(
++    *,
++    event: str,
++    cause: str,
++    status: str,
++    attempt: int | None = None,
++    detail: str | None = None,
++) -> None:
++    """Emit a structured, cause-coded log record for agent operations.
++
++    The recent RBT diagnosis identified ``agent.submit:fail`` as the top thorn.
++    Keeping all submit-path diagnostics in a JSON payload makes those failures
++    easier to aggregate from logs/events.jsonl while preserving current working
++    shell execution behavior.
++    """
++
++    payload: dict[str, Any] = {
++        "event": event,
++        "cause": cause,
++        "status": status,
++    }
++    if attempt is not None:
++        payload["attempt"] = attempt
++    if detail:
++        payload["detail"] = detail
++
++    LOGGER.info("agent_event %s", json.dumps(payload, sort_keys=True))
++
++
++def submit_with_observability(
++    submit_call: Callable[[], _T],
++    *,
++    cause: str = "agent.submit",
++    max_attempts: int = 2,
++    base_delay_seconds: float = 0.25,
++) -> _T:
++    """Run an agent submit operation with structured logging and one retry.
++
++    Args:
++        submit_call: Zero-argument callable that performs the actual submit.
++        cause: Stable cause code prefix used in diagnostics.
++        max_attempts: Total attempts. The default of 2 means one retry.
++        base_delay_seconds: Base jitter cap before retrying.
++
++    Returns:
++        The result from ``submit_call``.
++
++    Raises:
++        The last exception raised by ``submit_call`` after logging a structured
++        ``<cause>:fail`` event.
++    """
++
++    if max_attempts < 1:
++        raise ValueError("max_attempts must be >= 1")
++    if base_delay_seconds < 0:
++        raise ValueError("base_delay_seconds must be >= 0")
++
++    last_error: BaseException | None = None
++    for attempt in range(1, max_attempts + 1):
++        try:
++            result = submit_call()
++        except Exception as exc:  # pragma: no cover - caller-specific failures
++            last_error = exc
++            log_agent_event(
++                event="submit",
++                cause=f"{cause}:fail",
++                status="failed",
++                attempt=attempt,
++                detail=f"{type(exc).__name__}: {exc}",
++            )
++            if attempt >= max_attempts:
++                raise
++
++            sleep_for = random.uniform(0, base_delay_seconds)
++            log_agent_event(
++                event="submit",
++                cause=f"{cause}:retry",
++                status="retrying",
++                attempt=attempt + 1,
++                detail=f"sleep={sleep_for:.3f}s",
++            )
++            time.sleep(sleep_for)
++        else:
++            log_agent_event(
++                event="submit",
++                cause=f"{cause}:ok",
++                status="ok",
++                attempt=attempt,
++            )
++            return result
++
++    assert last_error is not None
++    raise last_error

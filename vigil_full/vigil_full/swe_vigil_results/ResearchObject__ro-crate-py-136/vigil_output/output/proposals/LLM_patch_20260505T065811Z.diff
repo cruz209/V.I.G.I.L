@@ -1,0 +1,65 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,65 @@
++import json
++import logging
++import random
++import time
++
++_ROBIN_STRUCTURED_LOG = logging.getLogger("robin.agent")
++
++
++def _log_structured_agent_event(event, *, cause, detail=None, exc=None, **fields):
++    """Emit structured agent telemetry with stable cause codes.
++
++    This keeps successful shell execution behavior untouched while making
++    intermittent submission failures diagnosable as `agent.submit:*` events.
++    """
++    payload = {
++        "event": event,
++        "cause": cause,
++        "detail": detail,
++        **fields,
++    }
++    if exc is not None:
++        payload["error_type"] = type(exc).__name__
++        payload["error"] = str(exc)
++    _ROBIN_STRUCTURED_LOG.info(json.dumps(payload, sort_keys=True, default=str))
++
++
++def _submit_with_observability(submit_fn, *args, **kwargs):
++    """Call an agent submit function with one jittered retry and logging.
++
++    Intended for wrapping `agent.submit` call sites that previously failed
++    without enough detail. The wrapper retries exactly once so normal behavior
++    is preserved while transient failures get a second chance and permanent
++    failures are surfaced with a structured `agent.submit:fail` cause code.
++    """
++    attempts = 2
++    last_exc = None
++    for attempt in range(1, attempts + 1):
++        try:
++            result = submit_fn(*args, **kwargs)
++            _log_structured_agent_event(
++                "agent.submit",
++                cause="agent.submit:ok",
++                attempt=attempt,
++            )
++            return result
++        except Exception as exc:
++            last_exc = exc
++            _log_structured_agent_event(
++                "agent.submit",
++                cause="agent.submit:fail",
++                detail="submit attempt failed",
++                exc=exc,
++                attempt=attempt,
++                will_retry=attempt < attempts,
++            )
++            if attempt < attempts:
++                time.sleep(random.uniform(0.1, 0.5))
++
++    # Re-raise with the original traceback context preserved as much as possible.
++    raise last_exc
++

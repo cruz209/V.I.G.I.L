@@ -1,0 +1,108 @@
+diff --git a/agent.py b/agent.py
+index 3b18f4a..8f7d2c1 100644
+--- a/agent.py
++++ b/agent.py
+@@ -1,0 +1,93 @@
++"""Agent reliability helpers.
++
++This module-level block is intentionally dependency-light so it can be used by
++existing agent entrypoints without changing their public behavior.  The helper
++below addresses the observed `agent.submit:fail` thorn by adding structured
++error logging and a single jittered retry for submit-like operations.
++"""
++
++from __future__ import annotations
++
++import json as _robin_json
++import logging as _robin_logging
++import random as _robin_random
++import time as _robin_time
++from typing import Any as _RobinAny, Callable as _RobinCallable, Mapping as _RobinMapping
++
++
++_ROBIN_LOGGER = _robin_logging.getLogger("robin.agent")
++
++
++def _log_structured_agent_event(
++    event: str,
++    *,
++    cause_code: str,
++    status: str,
++    attempt: int = 1,
++    error: BaseException | None = None,
++    extra: _RobinMapping[str, _RobinAny] | None = None,
++) -> None:
++    """Emit a machine-readable agent event without disrupting callers.
++
++    The logs/events.jsonl diagnosis surfaced `agent.submit:fail` as the top
++    thorn.  Keeping failures structured makes future RBT passes able to
++    distinguish transient submit issues from validation or integration errors.
++    """
++
++    payload: dict[str, _RobinAny] = {
++        "event": event,
++        "cause_code": cause_code,
++        "status": status,
++        "attempt": attempt,
++    }
++    if error is not None:
++        payload["error_type"] = type(error).__name__
++        payload["error_message"] = str(error)
++    if extra:
++        payload["extra"] = dict(extra)
++
++    try:
++        _ROBIN_LOGGER.info("agent_event %s", _robin_json.dumps(payload, sort_keys=True))
++    except Exception:  # pragma: no cover - logging must never break agent flow
++        _ROBIN_LOGGER.info("agent_event %r", payload)
++
++
++def submit_with_observability(
++    submit_fn: _RobinCallable[..., _RobinAny],
++    *args: _RobinAny,
++    cause_code: str = "agent.submit",
++    max_attempts: int = 2,
++    base_delay_seconds: float = 0.25,
++    **kwargs: _RobinAny,
++) -> _RobinAny:
++    """Run a submit operation with structured logging and one jittered retry.
++
++    Existing call sites can wrap their submit callable with this helper:
++
++        result = submit_with_observability(agent.submit, payload)
++
++    It preserves successful behavior, surfaces structured failure metadata, and
++    retries transient submit failures once by default.
++    """
++
++    if max_attempts < 1:
++        raise ValueError("max_attempts must be at least 1")
++
++    last_error: BaseException | None = None
++    for attempt in range(1, max_attempts + 1):
++        try:
++            result = submit_fn(*args, **kwargs)
++            _log_structured_agent_event(
++                "agent.submit",
++                cause_code=f"{cause_code}:ok",
++                status="ok",
++                attempt=attempt,
++            )
++            return result
++        except Exception as exc:  # pragma: no cover - exercised by integration flows
++            last_error = exc
++            _log_structured_agent_event(
++                "agent.submit",
++                cause_code=f"{cause_code}:fail",
++                status="retrying" if attempt < max_attempts else "failed",
++                attempt=attempt,
++                error=exc,
++            )
++            if attempt >= max_attempts:
++                break
++            jitter = _robin_random.uniform(0, base_delay_seconds)
++            _robin_time.sleep(base_delay_seconds + jitter)
++
++    assert last_error is not None
++    raise last_error
++

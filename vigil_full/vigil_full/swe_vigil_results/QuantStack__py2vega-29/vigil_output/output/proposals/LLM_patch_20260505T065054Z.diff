@@ -1,0 +1,73 @@
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,78 @@
++import functools
++import json
++import logging
++import random
++import time
++from typing import Any, Callable, Dict, TypeVar
++
++_T = TypeVar("_T")
++
++
++def _get_agent_logger() -> logging.Logger:
++    """Return the shared agent logger without forcing application logging config."""
++    return logging.getLogger("robin_b.agent")
++
++
++def log_structured_event(event: str, **fields: Any) -> None:
++    """Emit structured JSON logs for agent observability.
++
++    The recent RBT diagnosis identified `agent.submit:fail` as a thorn.  This
++    helper gives every failing path a consistent cause code and metadata shape
++    so later log processing can distinguish transient tool errors from caller
++    mistakes without changing successful behavior.
++    """
++    payload: Dict[str, Any] = {"event": event, **fields}
++    _get_agent_logger().info(json.dumps(payload, sort_keys=True, default=str))
++
++
++def submit_with_observability(submit: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
++    """Call an agent submit function with one jittered retry and structured errors.
++
++    Use this wrapper at `agent.submit` call sites. It preserves the normal return
++    value on success, retries once after a short randomized delay on failure, and
++    logs both attempts with the stable cause code `agent.submit:fail`.
++    """
++    max_attempts = 2
++    for attempt in range(1, max_attempts + 1):
++        try:
++            result = submit(*args, **kwargs)
++            log_structured_event(
++                "agent.submit.ok",
++                cause="agent.submit:ok",
++                attempt=attempt,
++                max_attempts=max_attempts,
++            )
++            return result
++        except Exception as exc:
++            log_structured_event(
++                "agent.submit.error",
++                cause="agent.submit:fail",
++                attempt=attempt,
++                max_attempts=max_attempts,
++                error_type=type(exc).__name__,
++                error=str(exc),
++            )
++            if attempt >= max_attempts:
++                raise
++            time.sleep(random.uniform(0.05, 0.25))
++
++    raise RuntimeError("unreachable submit retry state")
++
++
++def observed_submit(func: Callable[..., _T]) -> Callable[..., _T]:
++    """Decorator form for submit methods that need structured retry logging."""
++
++    @functools.wraps(func)
++    def wrapper(*args: Any, **kwargs: Any) -> _T:
++        return submit_with_observability(func, *args, **kwargs)
++
++    return wrapper
++

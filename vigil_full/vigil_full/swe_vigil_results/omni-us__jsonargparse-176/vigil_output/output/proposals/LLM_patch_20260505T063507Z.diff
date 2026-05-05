@@ -1,0 +1,103 @@
+diff --git a/agent.py b/agent.py
+index e69de29..f5a7c8d 100644
+--- a/agent.py
++++ b/agent.py
+@@ -0,0 +1,84 @@
++"""Agent runtime helpers.
++
++This module contains small reliability utilities used by the agent runtime.
++The submit wrapper below was added after RBT diagnosis identified
++``agent.submit`` as the current top thorn.  It preserves successful submit
++behavior while adding structured failure logging and one bounded retry.
++"""
++
++from __future__ import annotations
++
++import json
++import logging
++import random
++import time
++from typing import Any, Callable, TypeVar
++
++
++T = TypeVar("T")
++LOGGER = logging.getLogger(__name__)
++
++
++def _log_submit_event(
++    *,
++    status: str,
++    attempt: int,
++    cause_code: str,
++    error: BaseException | None = None,
++) -> None:
++    """Emit a structured log event for submit observability.
++
++    The JSON payload keeps the event machine-readable for future log review
++    while remaining safe: exception type and message are recorded, but no
++    submit arguments or payload contents are logged.
++    """
++
++    event: dict[str, Any] = {
++        "event": "agent.submit",
++        "status": status,
++        "attempt": attempt,
++        "cause_code": cause_code,
++    }
++    if error is not None:
++        event["error_type"] = type(error).__name__
++        event["error"] = str(error)
++    LOGGER.info("agent_submit_event=%s", json.dumps(event, sort_keys=True))
++
++
++def submit_with_observability(
++    submit_fn: Callable[..., T],
++    *args: Any,
++    max_retries: int = 1,
++    jitter_seconds: float = 0.25,
++    **kwargs: Any,
++) -> T:
++    """Call ``submit_fn`` with structured error logging and one retry.
++
++    Args:
++        submit_fn: The callable that performs the submit operation.
++        *args: Positional arguments forwarded to ``submit_fn``.
++        max_retries: Number of retries after the initial attempt. Defaults to
++            one retry, matching the RBT mitigation plan for tool-call failure.
++        jitter_seconds: Upper bound for retry jitter. Set to 0 to disable wait.
++        **kwargs: Keyword arguments forwarded to ``submit_fn``.
++
++    Returns:
++        The value returned by ``submit_fn``.
++
++    Raises:
++        The final exception from ``submit_fn`` after retries are exhausted.
++    """
++
++    if max_retries < 0:
++        raise ValueError("max_retries must be non-negative")
++    if jitter_seconds < 0:
++        raise ValueError("jitter_seconds must be non-negative")
++
++    attempt = 0
++    while True:
++        try:
++            result = submit_fn(*args, **kwargs)
++            _log_submit_event(
++                status="ok",
++                attempt=attempt,
++                cause_code="agent.submit:ok",
++            )
++            return result
++        except Exception as exc:
++            _log_submit_event(
++                status="fail",
++                attempt=attempt,
++                cause_code="agent.submit:fail",
++                error=exc,
++            )
++            if attempt >= max_retries:
++                raise
++            attempt += 1
++            if jitter_seconds:
++                time.sleep(random.uniform(0.0, jitter_seconds))

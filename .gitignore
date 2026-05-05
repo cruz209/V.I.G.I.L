@@ -1,0 +1,7 @@
+﻿.venv/
+__pycache__/
+*.pyc
+vigil_full/vigil_full/swe_results/
+vigil_full/vigil_full/vigil_swe_logs/
+vigil_full/vigil_full/vigil_swe_logs_full/
+vigil_full/vigil_full/vigil_swe_logs_real/

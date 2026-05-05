@@ -1,0 +1,16 @@
+{"ts": "2026-05-05T05:06:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 0, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:06:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 1, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:07:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 2, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:07:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 3, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:08:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 4, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:08:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 5, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:09:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 6, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:09:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 7, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:10:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 8, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:10:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 9, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:11:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 10, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:11:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 11, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:12:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 12, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:12:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 13, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:13:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 14, "instance_id": "marshmallow-code__apispec-webframeworks-64", "obs_len": 0}}
+{"ts": "2026-05-05T05:13:59Z", "kind": "agent.submit", "status": "fail", "payload": {"instance_id": "marshmallow-code__apispec-webframeworks-64", "resolved": false, "exit_status": "submitted", "total_steps": 15}}

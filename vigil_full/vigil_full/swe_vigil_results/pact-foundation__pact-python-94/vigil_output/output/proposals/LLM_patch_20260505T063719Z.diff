@@ -1,0 +1,86 @@
+diff --git a/agent.py b/agent.py
+index 7f3a2b1..c9d8e4f 100644
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,78 @@
++import functools
++import json
++import logging
++import random
++import time
++
++_AGENT_OBSERVABILITY_LOGGER = logging.getLogger("robin_b.agent")
++
++
++def _emit_structured_agent_event(event, **fields):
++    """Emit a structured agent event without interrupting the caller.
++
++    Recent RBT diagnostics identified `agent.submit` failures as the primary
++    thorn.  This helper gives submit paths a consistent cause code and payload
++    shape so failures are easier to identify from JSONL logs.
++    """
++    payload = {"event": event, **fields}
++    try:
++        _AGENT_OBSERVABILITY_LOGGER.info(json.dumps(payload, sort_keys=True, default=str))
++    except Exception:
++        _AGENT_OBSERVABILITY_LOGGER.info("agent_event=%s fields=%r", event, fields)
++
++
++def _retry_once_with_jitter(operation, *, cause_code, min_delay=0.05, max_delay=0.25):
++    """Run an operation, retrying once after structured failure logging.
++
++    Use this around fragile tool/submit calls, for example:
++
++        result = _retry_once_with_jitter(
++            lambda: submit(payload),
++            cause_code="agent.submit",
++        )
++
++    The first failure is logged with a stable `<cause_code>:fail` cause.  If the
++    retry also fails, the second error is logged and re-raised so existing error
++    handling semantics are preserved.
++    """
++    try:
++        return operation()
++    except Exception as first_error:
++        delay = random.uniform(min_delay, max_delay)
++        _emit_structured_agent_event(
++            "tool_call_failed",
++            cause=f"{cause_code}:fail",
++            attempt=1,
++            retry_scheduled=True,
++            retry_delay_seconds=round(delay, 4),
++            error_type=type(first_error).__name__,
++            error=str(first_error),
++        )
++        time.sleep(delay)
++
++    try:
++        result = operation()
++    except Exception as retry_error:
++        _emit_structured_agent_event(
++            "tool_call_failed",
++            cause=f"{cause_code}:fail",
++            attempt=2,
++            retry_scheduled=False,
++            error_type=type(retry_error).__name__,
++            error=str(retry_error),
++        )
++        raise
++
++    _emit_structured_agent_event(
++        "tool_call_recovered",
++        cause=f"{cause_code}:ok_after_retry",
++        attempts=2,
++    )
++    return result
++
++
++def retry_agent_submit_once(func):
++    """Decorator for agent.submit-style call sites needing one safe retry."""
++    @functools.wraps(func)
++    def wrapper(*args, **kwargs):
++        return _retry_once_with_jitter(lambda: func(*args, **kwargs), cause_code="agent.submit")
++
++    return wrapper
++

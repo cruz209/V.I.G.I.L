@@ -1,0 +1,5 @@
+{"ts": "2025-10-11T23:50:00Z", "actor": "robin_a", "kind": "reminder.set", "status": "ok", "payload": {"id": "r-1001", "due": "2025-10-11T23:53:00Z", "tz": "local"}, "note": "user asked for 3:53am", "source": "jsonl"}
+{"ts": "2025-10-11T23:58:10Z", "actor": "robin_a", "kind": "reminder.toast", "status": "delay", "payload": {"id": "r-1001", "delayed_by_sec": 310}, "note": "toast 5m late", "source": "jsonl"}
+{"ts": "2025-10-12T00:04:10Z", "actor": "user", "kind": "feedback", "status": "complaint", "payload": {"text": "it ran at the WRONG time I was coding last night"}, "note": "timezone mismatch suspected", "source": "jsonl"}
+{"ts": "2025-10-12T01:00:00Z", "actor": "robin_a", "kind": "reminder.set", "status": "ok", "payload": {"id": "r-1002", "due": "2025-10-12T01:15:00Z", "tz": "local"}, "note": "second reminder", "source": "jsonl"}
+{"ts": "2025-10-12T01:16:00Z", "actor": "robin_a", "kind": "reminder.toast", "status": "ok", "payload": {"id": "r-1002", "delayed_by_sec": 60}, "note": "late by ~1m", "source": "jsonl"}

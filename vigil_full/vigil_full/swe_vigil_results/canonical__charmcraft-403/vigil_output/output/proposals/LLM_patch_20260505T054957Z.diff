@@ -1,0 +1,97 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -0,0 +1,95 @@
++"""Agent runtime helpers.
++
++This module includes small reliability utilities used by the agent entrypoints.
++"""
++
++from __future__ import annotations
++
++import json
++import logging
++import random
++import time
++from typing import Any, Callable, Mapping, MutableMapping, TypeVar
++
++
++LOGGER = logging.getLogger(__name__)
++T = TypeVar("T")
++
++
++def log_structured_error(
++    *,
++    cause_code: str,
++    exc: BaseException,
++    context: Mapping[str, Any] | None = None,
++) -> None:
++    """Emit a consistent structured error record for failing agent paths.
++
++    Recent RBT diagnostics identified ``agent.submit:fail`` as the top thorn.
++    Keeping the log shape stable makes failures easier to aggregate and compare
++    against successful rose/bud behaviours.
++    """
++
++    payload: MutableMapping[str, Any] = {
++        "event": "agent.error",
++        "cause_code": cause_code,
++        "error_type": type(exc).__name__,
++        "error": str(exc),
++    }
++    if context:
++        payload["context"] = dict(context)
++
++    LOGGER.error("agent structured error: %s", json.dumps(payload, sort_keys=True))
++
++
++def call_with_single_retry(
++    operation: Callable[[], T],
++    *,
++    cause_code: str,
++    context: Mapping[str, Any] | None = None,
++    base_delay_seconds: float = 0.25,
++    max_jitter_seconds: float = 0.5,
++) -> T:
++    """Run an operation, then retry once with jitter after a failure.
++
++    Use this for fragile submission paths so transient failures are surfaced with
++    a cause code and get one bounded automatic retry.
++    """
++
++    try:
++        return operation()
++    except Exception as first_error:
++        log_structured_error(
++            cause_code=cause_code,
++            exc=first_error,
++            context={**(dict(context or {})), "attempt": 1, "retrying": True},
++        )
++        delay = max(0.0, base_delay_seconds) + random.uniform(
++            0.0, max(0.0, max_jitter_seconds)
++        )
++        time.sleep(delay)
++
++    try:
++        return operation()
++    except Exception as retry_error:
++        log_structured_error(
++            cause_code=cause_code,
++            exc=retry_error,
++            context={**(dict(context or {})), "attempt": 2, "retrying": False},
++        )
++        raise
++
++
++def submit_with_observability(submit: Callable[[], T], *, context: Mapping[str, Any] | None = None) -> T:
++    """Submit through a guarded wrapper that logs and retries once.
++
++    This is intended to wrap existing ``agent.submit`` call sites without
++    changing their return value semantics.
++    """
++
++    return call_with_single_retry(
++        submit,
++        cause_code="agent.submit:fail",
++        context=context,
++    )

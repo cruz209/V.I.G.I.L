@@ -1,0 +1,94 @@
+diff --git a/agent.py b/agent.py
+--- a/agent.py
++++ b/agent.py
+@@ -1,0 +1,87 @@
++"""Agent reliability helpers.
++
++This module-level utility captures structured telemetry for tool submission
++failures and retries transient submit errors once.  It is intentionally
++dependency-free so the agent can keep reporting useful failure evidence even
++when optional observability stacks are unavailable.
++"""
++
++from __future__ import annotations
++
++import functools
++import json
++import logging
++import random
++import time
++from typing import Any, Callable, Dict, TypeVar
++
++
++LOGGER = logging.getLogger(__name__)
++F = TypeVar("F", bound=Callable[..., Any])
++
++
++def log_structured_event(event: str, *, cause: str, **fields: Any) -> None:
++    """Emit a structured log record with a stable cause code.
++
++    Stable cause codes make failures such as ``agent.submit:fail`` searchable
++    across runs and support the RBT loop's thorn diagnosis without relying on
++    free-form exception text.
++    """
++
++    payload: Dict[str, Any] = {
++        "event": event,
++        "cause": cause,
++        "ts": time.time(),
++    }
++    payload.update(fields)
++    LOGGER.info("agent_event %s", json.dumps(payload, sort_keys=True, default=str))
++
++
++def retry_submit_once(func: F) -> F:
++    """Retry a submit-like call once and log structured failure evidence.
++
++    Use this decorator on functions that call ``agent.submit`` or equivalent
++    outbound submission APIs.  The first failure is logged, the agent waits for
++    a small jittered delay, and then retries exactly once.  If the retry also
++    fails, a second structured record is emitted before the original exception
++    path is preserved for callers.
++    """
++
++    @functools.wraps(func)
++    def wrapper(*args: Any, **kwargs: Any) -> Any:
++        try:
++            result = func(*args, **kwargs)
++            log_structured_event(
++                "agent.submit",
++                cause="agent.submit:ok",
++                function=getattr(func, "__name__", "unknown"),
++            )
++            return result
++        except Exception as exc:  # pragma: no cover - defensive telemetry path
++            delay = random.uniform(0.1, 0.5)
++            log_structured_event(
++                "agent.submit",
++                cause="agent.submit:fail",
++                function=getattr(func, "__name__", "unknown"),
++                error_type=type(exc).__name__,
++                error=str(exc),
++                retry_in_seconds=round(delay, 3),
++            )
++            time.sleep(delay)
++            try:
++                result = func(*args, **kwargs)
++                log_structured_event(
++                    "agent.submit",
++                    cause="agent.submit:retry_ok",
++                    function=getattr(func, "__name__", "unknown"),
++                )
++                return result
++            except Exception as retry_exc:
++                log_structured_event(
++                    "agent.submit",
++                    cause="agent.submit:retry_fail",
++                    function=getattr(func, "__name__", "unknown"),
++                    error_type=type(retry_exc).__name__,
++                    error=str(retry_exc),
++                )
++                raise
++
++    return wrapper  # type: ignore[return-value]
++

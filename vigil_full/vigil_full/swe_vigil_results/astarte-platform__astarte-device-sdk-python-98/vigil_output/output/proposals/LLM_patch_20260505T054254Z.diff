@@ -1,0 +1,77 @@
+diff --git a/agent.py b/agent.py
+index 2f1a6b7..8c4d9e2 100644
+--- a/agent.py
++++ b/agent.py
+@@ -1,3 +1,79 @@
++import json
++import logging
++import random
++import time
++
++LOGGER = logging.getLogger(__name__)
++
++
++def _structured_tool_error(tool_name, exc, *, attempt, max_attempts, cause_code=None):
++    """Return a consistent, machine-readable error payload for tool failures."""
++    return {
++        "event": "tool_call_failed",
++        "tool": tool_name,
++        "cause_code": cause_code or f"{tool_name}:fail",
++        "attempt": attempt,
++        "max_attempts": max_attempts,
++        "error_type": type(exc).__name__,
++        "error": str(exc),
++    }
++
++
++def _log_structured_tool_error(tool_name, exc, *, attempt, max_attempts, cause_code=None):
++    """Log tool-call failures as structured JSON so thorns are diagnosable."""
++    payload = _structured_tool_error(
++        tool_name,
++        exc,
++        attempt=attempt,
++        max_attempts=max_attempts,
++        cause_code=cause_code,
++    )
++    LOGGER.error(json.dumps(payload, sort_keys=True))
++    return payload
++
++
++def _call_with_single_retry(fn, *args, tool_name="agent.submit", cause_code=None, **kwargs):
++    """Call a tool once, retrying a single time with small jitter on failure.
++
++    The recent RBT diagnosis identified ``agent.submit`` failures as the top
++    thorn.  Centralising retry and structured logging preserves existing
++    successful paths while making submit failures visible and transiently
++    recoverable.
++    """
++    max_attempts = 2
++    last_error = None
++    for attempt in range(1, max_attempts + 1):
++        try:
++            return fn(*args, **kwargs)
++        except Exception as exc:  # pragma: no cover - exercised by callers
++            last_error = exc
++            _log_structured_tool_error(
++                tool_name,
++                exc,
++                attempt=attempt,
++                max_attempts=max_attempts,
++                cause_code=cause_code,
++            )
++            if attempt == max_attempts:
++                break
++            time.sleep(0.05 + random.random() * 0.15)
++    raise last_error
++
++
++def submit_with_observability(submit_fn, *args, **kwargs):
++    """Submit via ``submit_fn`` with one retry and structured failure logs."""
++    return _call_with_single_retry(
++        submit_fn,
++        *args,
++        tool_name="agent.submit",
++        cause_code="agent.submit:fail",
++        **kwargs,
++    )
++

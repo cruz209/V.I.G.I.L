@@ -1,0 +1,91 @@
+--- a/agent.py
++++ b/agent.py
+@@ -0,0 +1,75 @@
++"""Agent reliability helpers.
++
++This module-level utility is intentionally lightweight so existing call sites can
++wrap submission/tool calls without changing their public behavior.  It records
++structured cause codes and retries transient failures once, matching the RBT
++finding that ``agent.submit`` failures need clearer observability and a single
++guarded retry.
++"""
++
++from __future__ import annotations
++
++import json
++import logging
++import random
++import time
++from typing import Any, Callable, TypeVar
++
++
++T = TypeVar("T")
++
++LOGGER = logging.getLogger(__name__)
++
++
++def log_structured_error(
++    *,
++    cause: str,
++    error: BaseException,
++    attempt: int | None = None,
++    max_attempts: int | None = None,
++    **context: Any,
++) -> None:
++    """Emit a structured error record with a stable cause code.
++
++    The JSON payload is kept flat and deterministic so downstream log consumers
++    can reliably aggregate failures by ``cause`` (for example,
++    ``agent.submit:fail``).
++    """
++
++    payload: dict[str, Any] = {
++        "event": "agent.error",
++        "cause": cause,
++        "error_type": type(error).__name__,
++        "error": str(error),
++    }
++    if attempt is not None:
++        payload["attempt"] = attempt
++    if max_attempts is not None:
++        payload["max_attempts"] = max_attempts
++    if context:
++        payload["context"] = context
++
++    LOGGER.error(json.dumps(payload, sort_keys=True))
++
++
++def call_with_observability(
++    operation: Callable[..., T],
++    *args: Any,
++    cause: str,
++    retries: int = 1,
++    jitter_seconds: float = 0.25,
++    **kwargs: Any,
++) -> T:
++    """Run ``operation`` with structured failure logging and one retry.
++
++    Use this for thorn-prone paths such as ``agent.submit``:
++
++        result = call_with_observability(submit, payload, cause="agent.submit:fail")
++
++    Existing successful behavior is preserved: return values pass through
++    unchanged, and exceptions are re-raised after the configured retry budget.
++    """
++
++    max_attempts = retries + 1
++    for attempt in range(1, max_attempts + 1):
++        try:
++            return operation(*args, **kwargs)
++        except Exception as exc:
++            log_structured_error(
++                cause=cause,
++                error=exc,
++                attempt=attempt,
++                max_attempts=max_attempts,
++            )
++            if attempt >= max_attempts:
++                raise
++            time.sleep(random.uniform(0.0, jitter_seconds))
++
++    raise RuntimeError("unreachable retry loop state")
