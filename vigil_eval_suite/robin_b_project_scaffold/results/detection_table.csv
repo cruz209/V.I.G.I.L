@@ -1,0 +1,13 @@
+system,failure_class,first_episode_detected,detected
+wink,structural,1,True
+wink,drift,1,True
+wink,novel,4,True
+agentspec,structural,1,True
+agentspec,drift,1,True
+agentspec,novel,,False
+arm,structural,1,True
+arm,drift,6,True
+arm,novel,,False
+vigil,structural,1,True
+vigil,drift,3,True
+vigil,novel,4,True

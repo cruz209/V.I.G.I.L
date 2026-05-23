@@ -1,0 +1,209 @@
+{
+  "accumulation_curve": [
+    {
+      "episode": 1,
+      "n_agents": 17,
+      "mean_emo_rows": 23.176470588235293,
+      "mean_composite": 1.6270588235294117,
+      "mean_proxy": 0.37058823529411766,
+      "mean_line_count": 26.294117647058822
+    },
+    {
+      "episode": 2,
+      "n_agents": 17,
+      "mean_emo_rows": 70.29411764705883,
+      "mean_composite": 1.756470588235294,
+      "mean_proxy": 0.44705882352941173,
+      "mean_line_count": 35.294117647058826
+    },
+    {
+      "episode": 3,
+      "n_agents": 17,
+      "mean_emo_rows": 141.76470588235293,
+      "mean_composite": 1.7329411764705882,
+      "mean_proxy": 0.4764705882352941,
+      "mean_line_count": 43.23529411764706
+    },
+    {
+      "episode": 4,
+      "n_agents": 17,
+      "mean_emo_rows": 238.41176470588235,
+      "mean_composite": 1.7329411764705882,
+      "mean_proxy": 0.4764705882352941,
+      "mean_line_count": 43.23529411764706
+    },
+    {
+      "episode": 5,
+      "n_agents": 17,
+      "mean_emo_rows": 360.5882352941176,
+      "mean_composite": 1.7329411764705882,
+      "mean_proxy": 0.4764705882352941,
+      "mean_line_count": 43.23529411764706
+    },
+    {
+      "episode": 6,
+      "n_agents": 17,
+      "mean_emo_rows": 508.29411764705884,
+      "mean_composite": 1.7329411764705882,
+      "mean_proxy": 0.4764705882352941,
+      "mean_line_count": 43.23529411764706
+    },
+    {
+      "episode": 7,
+      "n_agents": 17,
+      "mean_emo_rows": 681.0588235294117,
+      "mean_composite": 1.7329411764705882,
+      "mean_proxy": 0.4764705882352941,
+      "mean_line_count": 43.23529411764706
+    }
+  ],
+  "detection_table": [
+    {
+      "system": "wink",
+      "failure_class": "structural",
+      "first_episode_detected": 1,
+      "detected": true
+    },
+    {
+      "system": "wink",
+      "failure_class": "drift",
+      "first_episode_detected": 1,
+      "detected": true
+    },
+    {
+      "system": "wink",
+      "failure_class": "novel",
+      "first_episode_detected": 4,
+      "detected": true
+    },
+    {
+      "system": "agentspec",
+      "failure_class": "structural",
+      "first_episode_detected": 1,
+      "detected": true
+    },
+    {
+      "system": "agentspec",
+      "failure_class": "drift",
+      "first_episode_detected": 1,
+      "detected": true
+    },
+    {
+      "system": "agentspec",
+      "failure_class": "novel",
+      "first_episode_detected": null,
+      "detected": false
+    },
+    {
+      "system": "arm",
+      "failure_class": "structural",
+      "first_episode_detected": 1,
+      "detected": true
+    },
+    {
+      "system": "arm",
+      "failure_class": "drift",
+      "first_episode_detected": 6,
+      "detected": true
+    },
+    {
+      "system": "arm",
+      "failure_class": "novel",
+      "first_episode_detected": null,
+      "detected": false
+    },
+    {
+      "system": "vigil",
+      "failure_class": "structural",
+      "first_episode_detected": 1,
+      "detected": true
+    },
+    {
+      "system": "vigil",
+      "failure_class": "drift",
+      "first_episode_detected": 3,
+      "detected": true
+    },
+    {
+      "system": "vigil",
+      "failure_class": "novel",
+      "first_episode_detected": 4,
+      "detected": true
+    }
+  ],
+  "false_positive_rates": {
+    "wink": {
+      "fp_count": 0,
+      "total": 21,
+      "fp_rate": 0.0
+    },
+    "agentspec": {
+      "fp_count": 0,
+      "total": 21,
+      "fp_rate": 0.0
+    },
+    "arm": {
+      "fp_count": 0,
+      "total": 21,
+      "fp_rate": 0.0
+    },
+    "vigil": {
+      "fp_count": 0,
+      "total": 21,
+      "fp_rate": 0.0
+    }
+  },
+  "judge_bias": {
+    "n": 140,
+    "claude_mean": 3.736,
+    "gpt4o_mean": 5.0,
+    "mean_bias_delta": 1.074,
+    "t_statistic": 33.803,
+    "p_value": 0.0,
+    "significant": true
+  },
+  "fleet_health": [
+    {
+      "episode": 1,
+      "n_agents": 17,
+      "zero_thorn_n": 8,
+      "health_score": 0.471
+    },
+    {
+      "episode": 2,
+      "n_agents": 17,
+      "zero_thorn_n": 5,
+      "health_score": 0.294
+    },
+    {
+      "episode": 3,
+      "n_agents": 17,
+      "zero_thorn_n": 2,
+      "health_score": 0.118
+    },
+    {
+      "episode": 4,
+      "n_agents": 17,
+      "zero_thorn_n": 0,
+      "health_score": 0.0
+    },
+    {
+      "episode": 5,
+      "n_agents": 17,
+      "zero_thorn_n": 0,
+      "health_score": 0.0
+    },
+    {
+      "episode": 6,
+      "n_agents": 17,
+      "zero_thorn_n": 0,
+      "health_score": 0.0
+    },
+    {
+      "episode": 7,
+      "n_agents": 17,
+      "zero_thorn_n": 0,
+      "health_score": 0.0
+    }
+  ]
+}
