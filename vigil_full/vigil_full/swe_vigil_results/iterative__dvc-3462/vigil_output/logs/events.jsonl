@@ -1,4 +1,0 @@
-{"ts": "2026-05-05T05:06:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 0, "instance_id": "iterative__dvc-3462", "obs_len": 0}}
-{"ts": "2026-05-05T05:06:59Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 1, "instance_id": "iterative__dvc-3462", "obs_len": 0}}
-{"ts": "2026-05-05T05:07:29Z", "kind": "shell.exec", "status": "ok", "payload": {"step": 2, "instance_id": "iterative__dvc-3462", "obs_len": 0}}
-{"ts": "2026-05-05T05:07:59Z", "kind": "agent.submit", "status": "fail", "payload": {"instance_id": "iterative__dvc-3462", "resolved": false, "exit_status": "early_exit", "total_steps": 3}}

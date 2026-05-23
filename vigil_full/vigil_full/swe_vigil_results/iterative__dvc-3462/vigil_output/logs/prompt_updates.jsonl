@@ -1,1 +1,0 @@
-{"ts": "2026-05-05T06:17:42Z", "persona": "vigil_agent", "reason": "Investigate and fix 'agent.submit' failures \u2014 they dominate this run.", "diff_summary": "+ adaptive reliability rules + RBT preamble + RBT plan"}

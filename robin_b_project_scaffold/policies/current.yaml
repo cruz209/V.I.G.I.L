@@ -1,0 +1,15 @@
+reflection:
+  cadence_minutes: 60
+  window_hours: 24
+  half_life:
+    reactive: 6h
+    self_evaluative: 24h
+    restorative: 12h
+routing:
+  tools:
+    reminders:
+      require_receipt: true
+      max_retries: 1
+      jitter_ms: [100, 300]
+logging:
+  include_fields: [scheduled_utc, emit_receipt_ts, lag_ms, retry]

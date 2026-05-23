@@ -1,0 +1,21 @@
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite-journal
+.env
+.venv
+dist/
+build/
+
+# Local artifacts
+db/*.sqlite
+logs/*.jsonl
+output/*
+!.gitkeep
+
+# Editors
+.idea/
+.vscode/
